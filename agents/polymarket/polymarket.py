@@ -223,21 +223,33 @@ class Polymarket:
             return self.map_api_to_market(market, token_id)
 
     def map_api_to_market(self, market, token_id: str = "") -> SimpleMarket:
+        # Безопасные извлечения с дефолтами, так как API может возвращать неполные поля
+        mid = int(market.get("id", 0))
+        question = market.get("question", "")
+        end = market.get("endDate", "")
+        description = market.get("description", "")
+        active = bool(market.get("active", False))
+        funded = bool(market.get("funded", False))
+        rewards_min = float(market.get("rewardsMinSize", 0) or 0)
+        rewards_max_spread = float(market.get("rewardsMaxSpread", 0) or 0)
+        spread = float(market.get("spread", 0) or 0)
+        outcomes = market.get("outcomes") or []
+        outcome_prices = market.get("outcomePrices") or []
+        clob_token_ids = market.get("clobTokenIds") or []
+
         market = {
-            "id": int(market["id"]),
-            "question": market["question"],
-            "end": market["endDate"],
-            "description": market["description"],
-            "active": market["active"],
-            # "deployed": market["deployed"],
-            "funded": market["funded"],
-            "rewardsMinSize": float(market["rewardsMinSize"]),
-            "rewardsMaxSpread": float(market["rewardsMaxSpread"]),
-            # "volume": float(market["volume"]),
-            "spread": float(market["spread"]),
-            "outcomes": str(market["outcomes"]),
-            "outcome_prices": str(market["outcomePrices"]),
-            "clob_token_ids": str(market["clobTokenIds"]),
+            "id": mid,
+            "question": question,
+            "end": end,
+            "description": description,
+            "active": active,
+            "funded": funded,
+            "rewardsMinSize": rewards_min,
+            "rewardsMaxSpread": rewards_max_spread,
+            "spread": spread,
+            "outcomes": str(outcomes),
+            "outcome_prices": str(outcome_prices),
+            "clob_token_ids": str(clob_token_ids),
         }
         if token_id:
             market["clob_token_ids"] = token_id
