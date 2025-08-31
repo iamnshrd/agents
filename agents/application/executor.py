@@ -14,6 +14,7 @@ from agents.connectors.chroma import PolymarketRAG as Chroma
 from agents.utils.objects import SimpleEvent, SimpleMarket
 from agents.application.prompts import Prompter
 from agents.polymarket.polymarket import Polymarket
+from agents.utils.market_dto import normalize_market
 
 def retain_keys(data, keys_to_retain):
     if isinstance(data, dict):
@@ -175,22 +176,17 @@ class Executor:
         if market is None:
             raise ValueError("Unsupported market_object format")
 
-        # Распаковка полей с безопасным парсингом
-        try:
-            outcome_prices = ast.literal_eval(market.get("outcome_prices", "[]"))
-        except Exception:
-            outcome_prices = []
-        try:
-            outcomes = ast.literal_eval(market.get("outcomes", "[]"))
-        except Exception:
-            outcomes = []
-        question = market.get("question", "")
+        # Нормализация рынка в единый формат
+        n = normalize_market(market)
+        outcome_prices = n.get("outcomePrices", [])
+        outcomes = n.get("outcomes", [])
+        question = n.get("question", "")
 
         # Fallback: если нет цен/исходов, пробуем получить цену из CLOB по token id
         if (not outcome_prices) or (len(outcome_prices) < 2):
             try:
-                raw_ids = market.get("clob_token_ids") or market.get("clobTokenIds") or "[]"
-                token_ids = ast.literal_eval(str(raw_ids)) if not isinstance(raw_ids, list) else raw_ids
+                raw_ids = n.get("clobTokenIds", [])
+                token_ids = raw_ids
                 if isinstance(token_ids, list) and token_ids:
                     price = float(self.polymarket.get_orderbook_price_cached(str(token_ids[0])))
                     price = max(0.01, min(0.99, price))

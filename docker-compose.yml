@@ -9,6 +9,9 @@ services:
       - ./logs:/home/logs
     command: >
       sh -c "python -c 'from agents.application.dry_run_trader import DryRunTrader; t=DryRunTrader(); t.run_session(num_trades=999999, pause_secs=10)'"
+    depends_on:
+      api:
+        condition: service_healthy
 
   telegram:
     image: polymarket-agents:latest

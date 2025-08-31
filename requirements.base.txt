@@ -20,7 +20,7 @@ aiohttp==3.10.0
 langchain==0.2.11
 langchain-community==0.2.10
 langchain-openai==0.1.19
-openai==1.37.1
+openai==1.40.6
 chromadb==0.4.24
 jq==1.7.0
 posthog==3.6.6
