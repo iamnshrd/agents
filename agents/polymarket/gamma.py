@@ -1,4 +1,7 @@
 import httpx
+import time
+import os
+from typing import Any
 import json
 from agents.utils.objects import Market, PolymarketEvent, ClobReward, Tag
 
@@ -9,6 +12,28 @@ class GammaMarketClient:
         self.gamma_markets_endpoint = self.gamma_url + "/markets"
         self.gamma_events_endpoint = self.gamma_url + "/events"
         self._client = httpx.Client(timeout=httpx.Timeout(10.0, connect=5.0))
+
+        # Throttling config
+        try:
+            self._req_per_sec = float(os.getenv("GAMMA_RPS", "5"))
+        except Exception:
+            self._req_per_sec = 5.0
+        self._min_interval = 1.0 / max(0.1, self._req_per_sec)
+        self._last_req_ts = 0.0
+
+        # Cache config
+        try:
+            self._cache_ttl_seconds = float(os.getenv("GAMMA_CACHE_TTL", "120"))
+        except Exception:
+            self._cache_ttl_seconds = 120.0
+        self._markets_cache: dict[str, tuple[list[Any], float]] = {}
+        self._events_cache: dict[str, tuple[list[Any], float]] = {}
+
+        # Pagination safety cap
+        try:
+            self._max_pages = int(os.getenv("GAMMA_MAX_PAGES", "100"))
+        except Exception:
+            self._max_pages = 100
 
     def parse_pydantic_market(self, market_object: dict) -> Market:
         try:
@@ -67,6 +92,22 @@ class GammaMarketClient:
         except Exception as err:
             print(f"[parse_event] Caught exception: {err}")
 
+    def _throttle(self) -> None:
+        now = time.time()
+        wait = self._min_interval - (now - self._last_req_ts)
+        if wait > 0:
+            time.sleep(wait)
+        self._last_req_ts = time.time()
+
+    def _cache_key(self, params: dict | None) -> str:
+        if not params:
+            return "{}"
+        try:
+            items = sorted(params.items(), key=lambda x: x[0])
+            return "&".join([f"{k}={v}" for k, v in items])
+        except Exception:
+            return str(params)
+
     def get_markets(
         self, querystring_params={}, parse_pydantic=False, local_file_path=None
     ) -> "list[Market]":
@@ -75,6 +116,14 @@ class GammaMarketClient:
                 'Cannot use "parse_pydantic" and "local_file" params simultaneously.'
             )
 
+        # Cache lookup
+        key = self._cache_key(querystring_params)
+        cached = self._markets_cache.get(key)
+        if cached:
+            data, ts = cached
+            if time.time() - ts <= self._cache_ttl_seconds:
+                return data if not parse_pydantic else [self.parse_pydantic_market(o) for o in data]
+
         response = self._get_with_retries(self.gamma_markets_endpoint, params=querystring_params)
         if response.status_code == 200:
             data = response.json()
@@ -82,11 +131,14 @@ class GammaMarketClient:
                 with open(local_file_path, "w+") as out_file:
                     json.dump(data, out_file)
             elif not parse_pydantic:
+                # store in cache
+                self._markets_cache[key] = (data, time.time())
                 return data
             else:
                 markets: list[Market] = []
                 for market_object in data:
                     markets.append(self.parse_pydantic_market(market_object))
+                self._markets_cache[key] = (data, time.time())
                 return markets
         else:
             print(f"Error response returned from api: HTTP {response.status_code}")
@@ -100,6 +152,14 @@ class GammaMarketClient:
                 'Cannot use "parse_pydantic" and "local_file" params simultaneously.'
             )
 
+        # Cache lookup
+        key = self._cache_key(querystring_params)
+        cached = self._events_cache.get(key)
+        if cached:
+            data, ts = cached
+            if time.time() - ts <= self._cache_ttl_seconds:
+                return data if not parse_pydantic else [self.parse_pydantic_event(o) for o in data]
+
         response = self._get_with_retries(self.gamma_events_endpoint, params=querystring_params)
         if response.status_code == 200:
             data = response.json()
@@ -107,11 +167,13 @@ class GammaMarketClient:
                 with open(local_file_path, "w+") as out_file:
                     json.dump(data, out_file)
             elif not parse_pydantic:
+                self._events_cache[key] = (data, time.time())
                 return data
             else:
                 events: list[PolymarketEvent] = []
                 for market_event_obj in data:
                     events.append(self.parse_event(market_event_obj))
+                self._events_cache[key] = (data, time.time())
                 return events
         else:
             raise Exception()
@@ -135,6 +197,7 @@ class GammaMarketClient:
     def get_all_current_markets(self, limit=100) -> "list[Market]":
         offset = 0
         all_markets = []
+        pages = 0
         while True:
             params = {
                 "active": True,
@@ -149,6 +212,9 @@ class GammaMarketClient:
             if len(market_batch) < limit:
                 break
             offset += limit
+            pages += 1
+            if pages >= self._max_pages:
+                break
 
         return all_markets
 
@@ -183,6 +249,7 @@ class GammaMarketClient:
         last_exc = None
         for attempt in range(1, retries + 1):
             try:
+                self._throttle()
                 resp = self._client.get(url, params=params)
                 if resp.status_code == 200:
                     return resp
