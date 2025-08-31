@@ -10,7 +10,6 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 from agents.polymarket.gamma import GammaMarketClient as Gamma
-from agents.connectors.chroma import PolymarketRAG as Chroma
 from agents.utils.objects import SimpleEvent, SimpleMarket
 from agents.application.prompts import Prompter
 from agents.polymarket.polymarket import Polymarket
@@ -31,6 +30,11 @@ def retain_keys(data, keys_to_retain):
 class Executor:
     def __init__(self, default_model='gpt-3.5-turbo-16k') -> None:
         load_dotenv()
+        # Disable Chroma telemetry by default to avoid readonly DB writes
+        try:
+            os.environ.setdefault("CHROMADB_DISABLE_TELEMETRY", "true")
+        except Exception:
+            pass
         max_token_model = {'gpt-3.5-turbo-16k':15000, 'gpt-4-1106-preview':95000}
         self.token_limit = max_token_model.get(default_model)
         self.prompter = Prompter()
@@ -38,7 +42,14 @@ class Executor:
         self.default_model = default_model
         self.client = OpenAI(api_key=self.openai_api_key)
         self.gamma = Gamma()
-        self.chroma = Chroma()
+        # Lazy init RAG only if explicitly enabled
+        self.chroma = None
+        if os.getenv("ENABLE_RAG", "false").lower() == "true":
+            try:
+                from agents.connectors.chroma import PolymarketRAG as _Chroma
+                self.chroma = _Chroma()
+            except Exception:
+                self.chroma = None
         self.polymarket = Polymarket()
 
     def _chat(self, prompt_text: str) -> str:
@@ -126,6 +137,8 @@ class Executor:
         return self._chat(prompt)
 
     def filter_events_with_rag(self, events: "list[SimpleEvent]") -> str:
+        if not self.chroma:
+            return []
         prompt = self.prompter.filter_events()
         print()
         print("... prompting ... ", prompt)
@@ -141,11 +154,12 @@ class Executor:
             market_ids = data["metadata"]["markets"].split(",")
             for market_id in market_ids:
                 market_data = self.gamma.get_market(market_id)
-                formatted_market_data = self.polymarket.map_api_to_market(market_data)
-                markets.append(formatted_market_data)
+                markets.append(market_data)
         return markets
 
     def filter_markets(self, markets) -> "list[tuple]":
+        if not self.chroma:
+            return []
         prompt = self.prompter.filter_markets()
         print()
         print("... prompting ... ", prompt)
