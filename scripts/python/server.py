@@ -1,5 +1,7 @@
 from typing import Union
 from fastapi import FastAPI
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from fastapi.responses import Response
 
 from agents.utils.portfolio import PortfolioManager
 
@@ -31,6 +33,12 @@ def read_market(market_id: int, q: Union[str, None] = None):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/metrics")
+def metrics():
+    data = generate_latest()
+    return Response(content=data, media_type=CONTENT_TYPE_LATEST)
 
 @app.get("/portfolio")
 def portfolio():

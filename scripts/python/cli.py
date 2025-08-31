@@ -240,6 +240,49 @@ def dry_run_trade() -> None:
 
 
 @app.command()
+def run_session(num_trades: int = 100, pause_secs: float = 5.0) -> None:
+    """
+    Run continuous dry-run trading session (headless)
+    """
+    print(f"Starting session: trades={num_trades}, pause={pause_secs}s")
+    DryRunTrader = _get_DryRunTrader()
+    trader = DryRunTrader()
+    trader.run_session(num_trades=num_trades, pause_secs=pause_secs)
+
+
+@app.command()
+def api_health(url: str = "http://localhost:8000/health") -> None:
+    """
+    Check API health endpoint
+    """
+    try:
+        import requests
+        r = requests.get(url, timeout=3)
+        print(f"Status: {r.status_code}, Body: {r.text[:200]}")
+    except Exception as e:
+        print(f"❌ Health check failed: {e}")
+
+
+@app.command()
+def status() -> None:
+    """
+    Print quick runtime status
+    """
+    try:
+        from agents.utils.trading_config import trading_config
+        cfg = trading_config.get_config_summary()
+        print(f"Mode: {cfg['trading_mode']}")
+        print(f"Balance: ${cfg['available_balance']:.2f}")
+    except Exception as e:
+        print(f"Config error: {e}")
+    try:
+        pm = PortfolioManager()
+        print(f"Portfolio balance: ${pm.get_balance():.2f}; positions: {len(pm.get_positions())}")
+    except Exception as e:
+        print(f"Portfolio error: {e}")
+
+
+@app.command()
 def show_config() -> None:
     """
     Show current trading configuration

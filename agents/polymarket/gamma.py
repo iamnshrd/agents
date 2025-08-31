@@ -2,6 +2,7 @@ import httpx
 import time
 import os
 from typing import Any
+from agents.utils.metrics import gamma_requests_total, gamma_cache_hits_total
 import json
 from agents.utils.objects import Market, PolymarketEvent, ClobReward, Tag
 
@@ -122,10 +123,12 @@ class GammaMarketClient:
         if cached:
             data, ts = cached
             if time.time() - ts <= self._cache_ttl_seconds:
+                gamma_cache_hits_total.labels(resource="markets").inc()
                 return data if not parse_pydantic else [self.parse_pydantic_market(o) for o in data]
 
         response = self._get_with_retries(self.gamma_markets_endpoint, params=querystring_params)
         if response.status_code == 200:
+            gamma_requests_total.labels(endpoint="markets", status="200").inc()
             data = response.json()
             if local_file_path is not None:
                 with open(local_file_path, "w+") as out_file:
@@ -141,6 +144,10 @@ class GammaMarketClient:
                 self._markets_cache[key] = (data, time.time())
                 return markets
         else:
+            try:
+                gamma_requests_total.labels(endpoint="markets", status=str(response.status_code)).inc()
+            except Exception:
+                pass
             print(f"Error response returned from api: HTTP {response.status_code}")
             raise Exception()
 
@@ -158,10 +165,12 @@ class GammaMarketClient:
         if cached:
             data, ts = cached
             if time.time() - ts <= self._cache_ttl_seconds:
+                gamma_cache_hits_total.labels(resource="events").inc()
                 return data if not parse_pydantic else [self.parse_pydantic_event(o) for o in data]
 
         response = self._get_with_retries(self.gamma_events_endpoint, params=querystring_params)
         if response.status_code == 200:
+            gamma_requests_total.labels(endpoint="events", status="200").inc()
             data = response.json()
             if local_file_path is not None:
                 with open(local_file_path, "w+") as out_file:
@@ -176,6 +185,10 @@ class GammaMarketClient:
                 self._events_cache[key] = (data, time.time())
                 return events
         else:
+            try:
+                gamma_requests_total.labels(endpoint="events", status=str(response.status_code)).inc()
+            except Exception:
+                pass
             raise Exception()
 
     def get_all_markets(self, limit=2) -> "list[Market]":

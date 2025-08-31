@@ -5,6 +5,7 @@ from agents.connectors.telegram import TelegramAlertsSync
 from agents.utils.trading_config import trading_config
 from agents.utils.portfolio import PortfolioManager
 from agents.utils.market_dto import normalize_market
+from agents.utils.metrics import trades_total, pnl_histogram
 
 import shutil
 import logging
@@ -186,6 +187,11 @@ class DryRunTrader:
             
             # Обновляем статистику
             self._update_trading_stats(trade_result)
+            try:
+                trades_total.labels(mode="dry_run").inc()
+                pnl_histogram.observe(float(trade_result.get("pnl", 0.0)))
+            except Exception:
+                pass
             
             # Отправляем алерт о результате
             self._send_position_alert(trade_result)
