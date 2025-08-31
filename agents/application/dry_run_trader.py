@@ -32,7 +32,12 @@ class DryRunTrader:
         except Exception:
             initial_balance = 100.0
         self.portfolio = PortfolioManager(initial_balance=initial_balance)
-        self._market_title_cache: dict[str, str] = {}
+        self._market_title_cache: dict[str, tuple[str, float]] = {}
+        try:
+            from agents.utils.trading_config import trading_config as _tc
+            self._title_ttl_secs = float(getattr(_tc, "market_title_ttl_seconds", 3600))
+        except Exception:
+            self._title_ttl_secs = 3600.0
         
         # Статистика торговли
         self.daily_stats = {
@@ -247,17 +252,25 @@ class DryRunTrader:
             # Если всё ещё Unknown, пробуем кэш/рефетч по id
             try:
                 if (event_title == "Unknown Event" or market_question == "Unknown Question") and market_id and market_id != "Unknown":
+                    import time
                     cached = self._market_title_cache.get(market_id)
+                    now = time.time()
+                    if cached:
+                        title, ts = cached
+                        if now - ts <= self._title_ttl_secs:
+                            market_question = title
+                            event_title = title
+                        else:
+                            cached = None
                     if not cached:
                         # Попытка получения вопроса с Gamma → Polymarket маппинг
                         detail = self.gamma.get_market(int(market_id))
                         mapped = self.polymarket.map_api_to_market(detail)
-                        cached = mapped.get("question", None) if isinstance(mapped, dict) else None
-                        if cached:
-                            self._market_title_cache[market_id] = cached
-                    if cached:
-                        market_question = cached
-                        event_title = cached
+                        title = mapped.get("question", None) if isinstance(mapped, dict) else None
+                        if title:
+                            self._market_title_cache[market_id] = (title, now)
+                            market_question = title
+                            event_title = title
             except Exception:
                 pass
 
