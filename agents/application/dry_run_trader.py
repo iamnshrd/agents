@@ -155,6 +155,7 @@ class DryRunTrader:
             trade_data = self._prepare_trade_data(market, best_trade)
             # Клампим размер позиции по риск-лимитам
             max_size = float(trading_config.max_position_size)
+            max_size = max(0.0, min(max_size, 1.0))
             size_val = float(trade_data.get("size", 0.0))
             clamped_size = max(0.0, min(size_val, max_size))
             trade_data["size"] = clamped_size
@@ -202,19 +203,40 @@ class DryRunTrader:
         try:
             # Парсим строку с данными о сделке
             # Пример: "price:0.3, size:0.2, side: BUY"
-            trade_parts = best_trade.replace("```", "").strip().split(",")
+            trade_parts = best_trade.replace("```", "").replace("`", "").strip().split(",")
             trade_data = {}
             
             for part in trade_parts:
                 if ":" in part:
                     key, value = part.strip().split(":")
-                    trade_data[key.strip()] = value.strip()
+                    k = key.strip().lower()
+                    v = value.strip().strip("'\"")
+                    if k == "side":
+                        v = v.upper()
+                    trade_data[k] = v
             
             # Обогащаем данными о рынке
+            event_title = "Unknown Event"
+            market_question = "Unknown Question"
+            market_id = "Unknown"
+            try:
+                doc = market[0] if isinstance(market, (list, tuple)) else market
+                if hasattr(doc, "dict"):
+                    md = doc.dict().get("metadata", {})
+                    market_question = md.get("question", market_question)
+                    event_title = md.get("question", market_question)
+                    market_id = md.get("id", market_id)
+                elif isinstance(doc, dict):
+                    market_question = doc.get("question", market_question)
+                    event_title = doc.get("question", market_question)
+                    market_id = doc.get("id", market_id)
+            except Exception:
+                pass
+
             trade_data.update({
-                "event_title": getattr(market, 'event_title', 'Unknown Event'),
-                "market_question": getattr(market, 'question', 'Unknown Question'),
-                "market_id": getattr(market, 'id', 'Unknown'),
+                "event_title": event_title,
+                "market_question": market_question,
+                "market_id": market_id,
                 "confidence": 0.7,  # Можно получать от AI агента
                 "timestamp": datetime.now().isoformat()
             })
