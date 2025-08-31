@@ -137,8 +137,8 @@ class DryRunTrader:
                     logger.warning("No markets mapped from filtered events; skipping trade")
                     return
             
-            # Фильтруем рынки
-            filtered_markets = self.agent.filter_markets(markets)
+            # Фильтруем рынки (без RAG, чтобы исключить записи в БД)
+            filtered_markets = self.agent.filter_markets_simple(markets)
             logger.info(f"4. FILTERED {len(filtered_markets)} MARKETS")
             
             if not filtered_markets:
@@ -192,7 +192,8 @@ class DryRunTrader:
             logger.info(f"6. DRY RUN TRADE COMPLETED: {trade_result}")
             
         except Exception as e:
-            logger.error(f"Error in dry run trading: {e}")
+            import traceback
+            logger.error(f"Error in dry run trading: {e}\n{traceback.format_exc()}")
             self._send_risk_alert({
                 "risk_level": "HIGH",
                 "description": f"Trading error: {str(e)}",

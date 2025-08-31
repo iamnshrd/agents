@@ -152,6 +152,35 @@ class Executor:
         print()
         return self.chroma.markets(markets, prompt)
 
+    def filter_markets_simple(self, markets) -> list[dict]:
+        """Heuristic filter without RAG/DB to avoid readonly issues."""
+        normalized = []
+        for m in markets:
+            try:
+                # markets may come as dicts or Documents; extract dict
+                if isinstance(m, (list, tuple)) and m and hasattr(m[0], "dict"):
+                    md = m[0].dict().get("metadata", {})
+                elif hasattr(m, "dict"):
+                    md = m.dict().get("metadata", {})
+                elif isinstance(m, dict):
+                    md = m
+                else:
+                    md = {}
+                n = normalize_market(md)
+                normalized.append(n)
+            except Exception:
+                continue
+        # score by presence of prices, lower spread (if present), fallback to id
+        def score(n: dict) -> tuple:
+            prices = n.get("outcomePrices") or []
+            has_price = 1 if prices else 0
+            # spread may exist in original md; default high
+            spread = md.get("spread", 0.5) if (md := n) else 0.5
+            return (has_price, -float(spread), -n.get("id", 0))
+        normalized.sort(key=score, reverse=True)
+        # return top 20
+        return normalized[:20]
+
     def source_best_trade(self, market_object) -> str:
         # Универсальная распаковка разных форматов market_object
         market = None
