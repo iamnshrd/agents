@@ -8,6 +8,7 @@ class GammaMarketClient:
         self.gamma_url = "https://gamma-api.polymarket.com"
         self.gamma_markets_endpoint = self.gamma_url + "/markets"
         self.gamma_events_endpoint = self.gamma_url + "/events"
+        self._client = httpx.Client(timeout=httpx.Timeout(10.0, connect=5.0))
 
     def parse_pydantic_market(self, market_object: dict) -> Market:
         try:
@@ -74,7 +75,7 @@ class GammaMarketClient:
                 'Cannot use "parse_pydantic" and "local_file" params simultaneously.'
             )
 
-        response = httpx.get(self.gamma_markets_endpoint, params=querystring_params)
+        response = self._get_with_retries(self.gamma_markets_endpoint, params=querystring_params)
         if response.status_code == 200:
             data = response.json()
             if local_file_path is not None:
@@ -99,7 +100,7 @@ class GammaMarketClient:
                 'Cannot use "parse_pydantic" and "local_file" params simultaneously.'
             )
 
-        response = httpx.get(self.gamma_events_endpoint, params=querystring_params)
+        response = self._get_with_retries(self.gamma_events_endpoint, params=querystring_params)
         if response.status_code == 200:
             data = response.json()
             if local_file_path is not None:
@@ -175,8 +176,27 @@ class GammaMarketClient:
     def get_market(self, market_id: int) -> dict():
         url = self.gamma_markets_endpoint + "/" + str(market_id)
         print(url)
-        response = httpx.get(url)
+        response = self._get_with_retries(url)
         return response.json()
+
+    def _get_with_retries(self, url: str, params: dict | None = None, retries: int = 3, backoff: float = 0.5) -> httpx.Response:
+        last_exc = None
+        for attempt in range(1, retries + 1):
+            try:
+                resp = self._client.get(url, params=params)
+                if resp.status_code == 200:
+                    return resp
+                # retry on transient statuses
+                if resp.status_code in {408, 429, 500, 502, 503, 504}:
+                    time.sleep(backoff * attempt)
+                    continue
+                return resp
+            except httpx.HTTPError as e:
+                last_exc = e
+                time.sleep(backoff * attempt)
+        if last_exc:
+            raise last_exc
+        raise Exception("Request failed without exception")
 
 
 if __name__ == "__main__":

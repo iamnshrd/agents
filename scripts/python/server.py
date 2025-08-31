@@ -1,6 +1,8 @@
 from typing import Union
 from fastapi import FastAPI
 
+from agents.utils.portfolio import PortfolioManager
+
 app = FastAPI()
 
 
@@ -25,3 +27,15 @@ def read_market(market_id: int, q: Union[str, None] = None):
 
 
 # post new prompt
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+@app.get("/portfolio")
+def portfolio():
+    pm = PortfolioManager()
+    return {
+        "balance": pm.get_balance(),
+        "positions": pm.get_positions(),
+    }
