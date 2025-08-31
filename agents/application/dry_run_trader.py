@@ -31,6 +31,7 @@ class DryRunTrader:
         except Exception:
             initial_balance = 100.0
         self.portfolio = PortfolioManager(initial_balance=initial_balance)
+        self._market_title_cache: dict[str, str] = {}
         
         # Статистика торговли
         self.daily_stats = {
@@ -225,11 +226,28 @@ class DryRunTrader:
                     md = doc.dict().get("metadata", {})
                     market_question = md.get("question", market_question)
                     event_title = md.get("question", market_question)
-                    market_id = md.get("id", market_id)
+                    market_id = str(md.get("id", market_id))
                 elif isinstance(doc, dict):
                     market_question = doc.get("question", market_question)
                     event_title = doc.get("question", market_question)
-                    market_id = doc.get("id", market_id)
+                    market_id = str(doc.get("id", market_id))
+            except Exception:
+                pass
+
+            # Если всё ещё Unknown, пробуем кэш/рефетч по id
+            try:
+                if (event_title == "Unknown Event" or market_question == "Unknown Question") and market_id and market_id != "Unknown":
+                    cached = self._market_title_cache.get(market_id)
+                    if not cached:
+                        # Попытка получения вопроса с Gamma → Polymarket маппинг
+                        detail = self.gamma.get_market(int(market_id))
+                        mapped = self.polymarket.map_api_to_market(detail)
+                        cached = mapped.get("question", None) if isinstance(mapped, dict) else None
+                        if cached:
+                            self._market_title_cache[market_id] = cached
+                    if cached:
+                        market_question = cached
+                        event_title = cached
             except Exception:
                 pass
 
