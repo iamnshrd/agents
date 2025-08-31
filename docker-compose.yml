@@ -1,0 +1,28 @@
+version: "3.9"
+
+services:
+  session:
+    image: polymarket-agents:latest
+    container_name: agents-session
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/home/logs
+    command: >
+      sh -c "python -c 'from agents.application.dry_run_trader import DryRunTrader; t=DryRunTrader(); t.run_session(num_trades=999999, pause_secs=10)'"
+
+  telegram:
+    image: polymarket-agents:latest
+    container_name: agents-telegram
+    restart: unless-stopped
+    env_file:
+      - .env
+    command: >
+      sh -c "python -c 'import asyncio; from agents.connectors.telegram import telegram_bot_poll; asyncio.run(telegram_bot_poll())'"
+
+networks:
+  default:
+    driver: bridge
+
+

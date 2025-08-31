@@ -146,6 +146,32 @@ This repo is inteded for use with Python 3.9
    # Requires TELEGRAM_BOT_TOKEN and (optionally) TELEGRAM_CHAT_ID
    python -c "import asyncio; from agents.connectors.telegram import telegram_bot_poll; asyncio.run(telegram_bot_poll())"
 
+## docker-compose
+
+To run both the session trader and Telegram bot as services:
+
+1. Build image locally:
+
+   ```
+   docker build -f Dockerfile -t polymarket-agents:latest .
+   ```
+
+2. Ensure your `.env` is in the repo root and contains required keys.
+
+3. Start services:
+
+   ```
+   docker compose up -d
+   ```
+
+4. Logs:
+
+   ```
+   docker compose logs -f session
+   docker compose logs -f telegram
+   tail -f logs/trading.log
+   ```
+
    # Legacy single-step example
    python agents/application/trade.py
    ```
