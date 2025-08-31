@@ -64,7 +64,7 @@ class Trader:
             print(f"3. FOUND {len(markets)} MARKETS")
 
             print()
-            filtered_markets = self.agent.filter_markets(markets)
+            filtered_markets = self.agent.filter_markets_simple(markets)
             print(f"4. FILTERED {len(filtered_markets)} MARKETS")
 
             market = filtered_markets[0]
