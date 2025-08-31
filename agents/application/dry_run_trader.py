@@ -193,8 +193,7 @@ class DryRunTrader:
             logger.info(f"6. DRY RUN TRADE COMPLETED: {trade_result}")
             
         except Exception as e:
-            import traceback
-            logger.error(f"Error in dry run trading: {e}\n{traceback.format_exc()}")
+            logger.exception(f"Error in dry run trading: {e}")
             self._send_risk_alert({
                 "risk_level": "HIGH",
                 "description": f"Trading error: {str(e)}",
