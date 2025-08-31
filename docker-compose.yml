@@ -16,6 +16,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    volumes:
+      - ./logs:/home/logs
     command: >
       sh -c "python -c 'import asyncio; from agents.connectors.telegram import telegram_bot_poll; asyncio.run(telegram_bot_poll())'"
 

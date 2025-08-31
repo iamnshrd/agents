@@ -122,7 +122,7 @@ class PolymarketRAG:
             metadata_func=metadata_func,
         )
         loaded_docs = loader.load()
-        embedding_function = OpenAIEmbeddings(model="text-embedding-3-small")
+        embedding_function = self.embedding_function or self._get_default_embeddings()
         vector_db_directory = f"{local_events_directory}/chroma"
         local_db = Chroma.from_documents(
             loaded_docs, embedding_function, persist_directory=vector_db_directory
@@ -159,7 +159,7 @@ class PolymarketRAG:
             metadata_func=metadata_func,
         )
         loaded_docs = loader.load()
-        embedding_function = OpenAIEmbeddings(model="text-embedding-3-small")
+        embedding_function = self.embedding_function or self._get_default_embeddings()
         vector_db_directory = f"{local_events_directory}/chroma"
         local_db = Chroma.from_documents(
             loaded_docs, embedding_function, persist_directory=vector_db_directory

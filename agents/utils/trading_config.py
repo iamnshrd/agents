@@ -157,7 +157,7 @@ class TradingConfig:
         """
         daily_trades = daily_stats.get("total_trades", 0)
         daily_pnl = daily_stats.get("total_pnl", 0)
-        available_balance = self.get_available_balance()
+        available_balance = float(self.get_available_balance())
         
         # Проверяем лимит по количеству сделок
         if daily_trades >= self.max_daily_trades:
@@ -166,7 +166,7 @@ class TradingConfig:
         
         # Проверяем лимит по убыткам
         if available_balance > 0:
-            daily_loss_percentage = abs(min(daily_pnl, 0)) / available_balance
+            daily_loss_percentage = abs(min(daily_pnl, 0.0)) / available_balance
             if daily_loss_percentage >= self.max_daily_loss:
                 logger.warning(f"Daily loss limit reached: {daily_loss_percentage*100:.2f}%")
                 return True

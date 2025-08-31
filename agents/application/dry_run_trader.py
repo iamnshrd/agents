@@ -231,7 +231,7 @@ class DryRunTrader:
         
         # Симулируем PnL (в реальности это будет зависеть от движения цены)
         price_change = random.uniform(-0.1, 0.1)  # ±10% изменение цены
-        position_value = trade_data.get("size", 0) * trading_config.get_available_balance()
+        position_value = float(trade_data.get("size", 0.0)) * float(trading_config.get_available_balance())
         pnl = position_value * price_change
         
         trade_result = {
