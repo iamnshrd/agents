@@ -2,6 +2,7 @@ FROM python:3.11-slim
 
 COPY . /home
 WORKDIR /home
+ENV PYTHONPATH=/home
 
 # System deps for building some wheels
 RUN apt-get update && apt-get install -y build-essential curl git && rm -rf /var/lib/apt/lists/*

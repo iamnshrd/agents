@@ -21,6 +21,17 @@ services:
     command: >
       sh -c "python -c 'import asyncio; from agents.connectors.telegram import telegram_bot_poll; asyncio.run(telegram_bot_poll())'"
 
+  api:
+    image: polymarket-agents:latest
+    container_name: agents-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "uvicorn scripts.python.server:app --host 0.0.0.0 --port 8000"
+
 networks:
   default:
     driver: bridge
