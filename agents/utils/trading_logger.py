@@ -10,7 +10,7 @@ class TradingLogger:
     Расширенный логгер для торговых операций
     """
     
-    def __init__(self, log_dir: str = "./logs"):
+    def __init__(self, log_dir: str = "/tmp/logs"):
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(exist_ok=True)
         
