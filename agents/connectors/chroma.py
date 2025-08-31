@@ -157,10 +157,11 @@ class PolymarketRAG:
         def metadata_func(record: dict, metadata: dict) -> dict:
 
             metadata["id"] = record.get("id")
-            metadata["outcomes"] = record.get("outcomes")
-            metadata["outcome_prices"] = record.get("outcome_prices")
+            # поддерживаем camelCase и snake_case из разных источников
+            metadata["outcomes"] = record.get("outcomes") or record.get("outcome")
+            metadata["outcome_prices"] = record.get("outcome_prices") or record.get("outcomePrices")
             metadata["question"] = record.get("question")
-            metadata["clob_token_ids"] = record.get("clob_token_ids")
+            metadata["clob_token_ids"] = record.get("clob_token_ids") or record.get("clobTokenIds")
 
             return metadata
 
