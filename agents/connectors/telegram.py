@@ -146,6 +146,7 @@ class TelegramAlerts:
 {side_emoji} <b>{operation}</b> {side_emoji}
 
 📊 <b>Событие:</b> {event_display}
+🧭 <b>Сторона:</b> {side}
 ❓ <b>Вопрос:</b> {market_question}
 💰 <b>Цена:</b> ${price:.3f}
 📏 <b>Размер:</b> {size*100:.1f}%

@@ -4,6 +4,7 @@ from agents.polymarket.polymarket import Polymarket
 from agents.connectors.telegram import TelegramAlertsSync
 from agents.utils.trading_config import trading_config
 from agents.utils.portfolio import PortfolioManager
+from agents.utils.market_dto import normalize_market
 
 import shutil
 import logging
@@ -210,28 +211,37 @@ class DryRunTrader:
             
             for part in trade_parts:
                 if ":" in part:
-                    key, value = part.strip().split(":")
+                    key, value = part.strip().split(":", 1)
                     k = key.strip().lower()
                     v = value.strip().strip("'\"")
                     if k == "side":
-                        v = v.upper()
+                        v = v.upper().replace("BUY", "BUY").replace("SELL", "SELL")
                     trade_data[k] = v
             
             # Обогащаем данными о рынке
             event_title = "Unknown Event"
             market_question = "Unknown Question"
             market_id = "Unknown"
+            market_url = ""
             try:
                 doc = market[0] if isinstance(market, (list, tuple)) else market
                 if hasattr(doc, "dict"):
                     md = doc.dict().get("metadata", {})
-                    market_question = md.get("question", market_question)
-                    event_title = md.get("question", market_question)
-                    market_id = str(md.get("id", market_id))
+                    n = normalize_market(md)
+                    market_question = n.get("question", market_question)
+                    event_title = market_question or event_title
+                    market_id = str(n.get("id", market_id))
+                    tokens = n.get("clobTokenIds") or []
+                    if tokens:
+                        market_url = f"https://polymarket.com/market/{tokens[0]}"
                 elif isinstance(doc, dict):
-                    market_question = doc.get("question", market_question)
-                    event_title = doc.get("question", market_question)
-                    market_id = str(doc.get("id", market_id))
+                    n = normalize_market(doc)
+                    market_question = n.get("question", market_question)
+                    event_title = market_question or event_title
+                    market_id = str(n.get("id", market_id))
+                    tokens = n.get("clobTokenIds") or []
+                    if tokens:
+                        market_url = f"https://polymarket.com/market/{tokens[0]}"
             except Exception:
                 pass
 
@@ -256,6 +266,7 @@ class DryRunTrader:
                 "event_title": event_title,
                 "market_question": market_question,
                 "market_id": market_id,
+                "market_url": market_url,
                 "confidence": 0.7,  # Можно получать от AI агента
                 "timestamp": datetime.now().isoformat()
             })
@@ -265,6 +276,9 @@ class DryRunTrader:
                 trade_data["price"] = float(trade_data["price"])
             if "size" in trade_data:
                 trade_data["size"] = float(trade_data["size"])
+            if "side" in trade_data:
+                s = str(trade_data.get("side", "")).upper()
+                trade_data["side"] = "BUY" if "BUY" in s else ("SELL" if "SELL" in s else "UNKNOWN")
             
             return trade_data
             
