@@ -16,7 +16,7 @@
 <h3 align="center">Polymarket Agents</h3>
 
   <p align="center">
-    Trade autonomously on Polymarket using AI Agents
+    Trade autonomously on Polymarket using AI Agents with MCP integration
     <br />
     <a href="https://github.com/polymarket/agents"><strong>Explore the docs »</strong></a>
     <br />
@@ -26,6 +26,10 @@
     <a href="https://github.com/polymarket/agents/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
     ·
     <a href="https://github.com/polymarket/agents/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
+  </p>
+  
+  <p align="center">
+    <strong>🚀 New Features:</strong> MCP Integration • Telegram Alerts • Dry-Run Trading • Performance Analytics
   </p>
 </div>
 
@@ -39,11 +43,18 @@ This code is free and publicly available under MIT License open source license (
 
 ## Features
 
-- Integration with Polymarket API
-- AI agent utilities for prediction markets
-- Local and remote RAG (Retrieval-Augmented Generation) support
-- Data sourcing from betting services, news providers, and web search
-- Comphrehensive LLM tools for prompt engineering
+- **🤖 AI Agents**: Autonomous trading on prediction markets
+- **📊 Polymarket Integration**: Full API integration for market data and trading
+- **🔍 MCP Integration**: Modern Model Context Protocol for data sourcing
+  - **Tavily MCP**: Web search, data extraction, sentiment analysis
+  - **The Verge News MCP**: High-quality technology news via Smithery
+- **📱 Telegram Alerts**: Real-time notifications for trades, positions, and market updates
+- **💾 Dry-Run Mode**: Safe trading simulation with virtual balance
+- **📈 Performance Analytics**: Comprehensive trading performance metrics
+- **🔐 Environment Configuration**: Secure parameter management via .env files
+- **🛠️ CLI Interface**: Rich command-line interface for all operations
+- **📚 RAG Support**: Retrieval-Augmented Generation with ChromaDB
+- **🎯 Superforecasting**: LLM-powered market prediction tools
 
 # Getting started
 
@@ -93,8 +104,23 @@ This repo is inteded for use with Python 3.9
    - Add the following environment variables:
 
    ```
+   # Core Trading
    POLYGON_WALLET_PRIVATE_KEY=""
    OPENAI_API_KEY=""
+   
+   # Telegram Integration
+   TELEGRAM_BOT_TOKEN=""
+   TELEGRAM_CHAT_ID=""
+   
+   # MCP Integration
+   TAVILY_API_KEY=""
+   SMITHERY_API_KEY=""
+   
+   # Trading Configuration (dry-run)
+   TRADING_MODE=dry_run
+   DRY_RUN_BALANCE=100000   # cents → $1000.00
+   MAX_POSITION_SIZE=0.10   # 10% от баланса на сделку (кламп)
+   RISK_PER_TRADE=0.02      # базовый риск, влияет на размер позиции
    ```
 
 6. Load your wallet with USDC.
@@ -108,6 +134,19 @@ This repo is inteded for use with Python 3.9
    Or just go trade! 
 
    ```
+   # Single dry-run trade
+   python -m agents.application.dry_run_trader
+
+   # Continuous dry-run session (edit __main__ or call from CLI soon)
+   # Example (Python REPL):
+   # from agents.application.dry_run_trader import DryRunTrader
+   # t = DryRunTrader(); t.run_session(num_trades=10, pause_secs=2.0)
+
+   # Telegram bot (simple long-polling): commands /positions and /portfolio
+   # Requires TELEGRAM_BOT_TOKEN and (optionally) TELEGRAM_CHAT_ID
+   python -c "import asyncio; from agents.connectors.telegram import telegram_bot_poll; asyncio.run(telegram_bot_poll())"
+
+   # Legacy single-step example
    python agents/application/trade.py
    ```
 
@@ -128,23 +167,72 @@ This repo is inteded for use with Python 3.9
 
 The Polymarket Agents architecture features modular components that can be maintained and extended by individual community members.
 
-### APIs
+### APIs & Connectors
 
 Polymarket Agents connectors standardize data sources and order types.
 
-- `Chroma.py`: chroma DB for vectorizing news sources and other API data. Developers are able to add their own vector database implementations.
+- **`Chroma.py`**: ChromaDB for vectorizing news sources and other API data. Developers can add their own vector database implementations.
 
-- `Gamma.py`: defines `GammaMarketClient` class, which interfaces with the Polymarket Gamma API to fetch and parse market and event metadata. Methods to retrieve current and tradable markets, as well as defined information on specific markets and events.
+- **`Gamma.py`**: Defines `GammaMarketClient` class, which interfaces with the Polymarket Gamma API to fetch and parse market and event metadata. Methods to retrieve current and tradable markets, as well as defined information on specific markets and events.
 
-- `Polymarket.py`: defines a Polymarket class that interacts with the Polymarket API to retrieve and manage market and event data, and to execute orders on the Polymarket DEX. It includes methods for API key initialization, market and event data retrieval, and trade execution. The file also provides utility functions for building and signing orders, as well as examples for testing API interactions.
+- **`Polymarket.py`**: Defines a Polymarket class that interacts with the Polymarket API to retrieve and manage market and event data, and to execute orders on the Polymarket DEX. Includes methods for API key initialization, market and event data retrieval, and trade execution.
 
-- `Objects.py`: data models using Pydantic; representations for trades, markets, events, and related entities.
+- **`Objects.py`**: Data models using Pydantic; representations for trades, markets, events, and related entities.
+
+### **New MCP Connectors**
+
+- **`tavily_mcp.py`**: Tavily MCP client for web search, data extraction, sentiment analysis, and market research.
+
+- **`verge_news_mcp.py`**: The Verge News MCP client via Smithery for high-quality technology news and market insights.
+
+- **`telegram.py`**: Telegram integration for real-time trading alerts, position updates, and market notifications.
+
+### **Enhanced Trading Modules**
+
+- **`enhanced_dry_run_trader.py`**: Advanced dry-run trader with MCP integration for market analysis and news sentiment.
+
+- **`trading_config.py`**: Centralized configuration management for all trading parameters and MCP settings.
+
+- **`trading_logger.py`**: Comprehensive logging system for trades, performance, and system events.
+
+- **`performance_analyzer.py`**: Advanced analytics for trading performance, including PnL, Sharpe ratio, and drawdown analysis.
 
 ### Scripts
 
 Files for managing your local environment, server set-up to run the application remotely, and cli for end-user commands.
 
 `cli.py` is the primary user interface for the repo. Users can run various commands to interact with the Polymarket API, retrieve relevant news articles, query local data, send data/prompts to LLMs, and execute trades in Polymarkets.
+
+## 🚀 New CLI Commands
+
+### **Trading Operations**
+- `dry-run-trade` - Execute a single dry-run trade
+- `enhanced-dry-run-trade` - Execute trade with MCP analysis
+- `enhanced-session` - Run multiple enhanced trades
+- `show-positions` - Display current trading positions
+- `show-portfolio` - Show portfolio performance
+- `show-trade-history` - Display trading history
+
+### **Configuration & Status**
+- `show-config` - Display current configuration
+- `show-mcp-status` - Check MCP server status
+- `show-verge-news-status` - Check The Verge News MCP status
+- `show-mcp-config` - Show MCP configuration for clients
+
+### **Performance & Analytics**
+- `performance-report` - Generate detailed performance report
+- `performance-summary` - Show performance summary
+- `export-performance` - Export performance data to JSON
+
+### **News & Data**
+- `test-mcp-search` - Test Tavily MCP search
+- `test-verge-news-search` - Test The Verge News search
+- `get-verge-daily-news` - Get today's news from The Verge
+
+### **Legacy Commands**
+- `get-all-markets` - Retrieve markets from Polymarket
+- `ask-llm` - Ask questions to LLM
+- `ask-polymarket-llm` - Ask questions with market context
 
 Commands should follow this format:
 

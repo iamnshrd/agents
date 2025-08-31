@@ -1,8 +1,12 @@
 from agents.application.executor import Executor as Agent
 from agents.polymarket.gamma import GammaMarketClient as Gamma
 from agents.polymarket.polymarket import Polymarket
+from agents.connectors.telegram import TelegramAlertsSync
+from agents.utils.trading_config import trading_config
 
 import shutil
+import logging
+from datetime import datetime
 
 
 class Trader:
@@ -10,6 +14,18 @@ class Trader:
         self.polymarket = Polymarket()
         self.gamma = Gamma()
         self.agent = Agent()
+        self.telegram = TelegramAlertsSync()
+        self.daily_stats = {
+            "total_trades": 0,
+            "total_pnl": 0.0,
+            "winning_trades": 0,
+            "losing_trades": 0,
+            "start_time": datetime.now()
+        }
+        
+        # Логируем конфигурацию
+        logging.info(f"Trader initialized in {trading_config.trading_mode} mode")
+        logging.info(f"Available balance: ${trading_config.get_available_balance():.2f}")
 
     def pre_trade_logic(self) -> None:
         self.clear_local_dbs()

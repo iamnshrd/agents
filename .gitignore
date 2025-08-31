@@ -27,3 +27,24 @@ archive.zip
 .cache
 .DS_Store
 local_db*
+
+# Logs
+logs/
+*.log
+
+# Temporary and test files
+test_*.py
+demo_*.py
+*_test.py
+*_demo.py
+*_summary.md
+*_SUMMARY.md
+VERGE_NEWS_*.md
+DRY_RUN_*.md
+FINAL_*.md
+QUICKSTART.md
+
+# Cache and temporary files
+.cache/
+tmp/
+temp/

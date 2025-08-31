@@ -1,7 +1,5 @@
 import httpx
 import json
-
-from agents.polymarket.polymarket import Polymarket
 from agents.utils.objects import Market, PolymarketEvent, ClobReward, Tag
 
 
@@ -184,5 +182,11 @@ class GammaMarketClient:
 if __name__ == "__main__":
     gamma = GammaMarketClient()
     market = gamma.get_market("253123")
-    poly = Polymarket()
-    object = poly.map_api_to_market(market)
+    try:
+        # Lazy import to avoid heavy dependency when not needed
+        from agents.polymarket.polymarket import Polymarket
+        poly = Polymarket()
+        obj = poly.map_api_to_market(market)
+        print(obj)
+    except Exception as e:
+        print(f"Polymarket demo disabled: {e}")

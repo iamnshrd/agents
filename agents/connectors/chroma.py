@@ -2,7 +2,11 @@ import json
 import os
 import time
 
-from langchain_openai import OpenAIEmbeddings
+try:
+    from langchain_openai import OpenAIEmbeddings  # optional, not required
+except Exception:
+    OpenAIEmbeddings = None  # type: ignore
+from typing import Any
 from langchain_community.document_loaders import JSONLoader
 from langchain_community.vectorstores.chroma import Chroma
 
@@ -16,6 +20,44 @@ class PolymarketRAG:
         self.local_db_directory = local_db_directory
         self.embedding_function = embedding_function
 
+    def _get_default_embeddings(self) -> Any:
+        """Return embeddings based on RAG_EMBEDDINGS env var.
+        - default: FakeEmbeddings (no external calls)
+        - if RAG_EMBEDDINGS=openai: use OpenAIEmbeddings (requires OPENAI_API_KEY)
+        """
+        choice = os.getenv("RAG_EMBEDDINGS", "fake").lower()
+        if choice == "openai":
+            # Prefer direct OpenAI client to avoid version mismatches
+            try:
+                from openai import OpenAI
+
+                class OpenAIEmbeddingAdapter:
+                    def __init__(self, model: str = "text-embedding-3-small") -> None:
+                        self.client = OpenAI()
+                        self.model = model
+
+                    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+                        response = self.client.embeddings.create(model=self.model, input=texts)
+                        return [d.embedding for d in response.data]
+
+                    def embed_query(self, text: str) -> list[float]:
+                        response = self.client.embeddings.create(model=self.model, input=[text])
+                        return response.data[0].embedding
+
+                return OpenAIEmbeddingAdapter()
+            except Exception:
+                # Fallback to LangChain wrapper if available
+                if OpenAIEmbeddings is not None:
+                    try:
+                        return OpenAIEmbeddings(model="text-embedding-3-small")
+                    except Exception:
+                        pass
+                # Final fallback: FakeEmbeddings
+                from langchain_community.embeddings import FakeEmbeddings
+                return FakeEmbeddings(size=1536)
+        from langchain_community.embeddings import FakeEmbeddings
+        return FakeEmbeddings(size=1536)
+
     def load_json_from_local(
         self, json_file_path=None, vector_db_directory="./local_db"
     ) -> None:
@@ -24,7 +66,7 @@ class PolymarketRAG:
         )
         loaded_docs = loader.load()
 
-        embedding_function = OpenAIEmbeddings(model="text-embedding-3-small")
+        embedding_function = self.embedding_function or self._get_default_embeddings()
         Chroma.from_documents(
             loaded_docs, embedding_function, persist_directory=vector_db_directory
         )
@@ -47,7 +89,7 @@ class PolymarketRAG:
     def query_local_markets_rag(
         self, local_directory=None, query=None
     ) -> "list[tuple]":
-        embedding_function = OpenAIEmbeddings(model="text-embedding-3-small")
+        embedding_function = self.embedding_function or self._get_default_embeddings()
         local_db = Chroma(
             persist_directory=local_directory, embedding_function=embedding_function
         )

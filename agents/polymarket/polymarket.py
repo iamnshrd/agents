@@ -11,7 +11,14 @@ from dotenv import load_dotenv
 
 from web3 import Web3
 from web3.constants import MAX_INT
-from web3.middleware import geth_poa_middleware
+try:
+    # Web3 v6 style
+    from web3.middleware import geth_poa_middleware as _poa_middleware
+except Exception:
+    # Web3 v7 style
+    from web3.middleware.proof_of_authority import (
+        ExtraDataToPOAMiddleware as _poa_middleware,
+    )
 
 import httpx
 from py_clob_client.client import ClobClient
@@ -57,7 +64,8 @@ class Polymarket:
         self.ctf_address = "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045"
 
         self.web3 = Web3(Web3.HTTPProvider(self.polygon_rpc))
-        self.web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+        # Inject PoA middleware (supports both web3 v6 and v7)
+        self.web3.middleware_onion.inject(_poa_middleware, layer=0)
 
         self.usdc = self.web3.eth.contract(
             address=self.usdc_address, abi=self.erc20_approve
