@@ -312,13 +312,18 @@ class Polymarket:
         all_events = self.get_all_events()
         return self.filter_events_for_trading(all_events)
 
-    def get_sampling_simplified_markets(self) -> "list[SimpleEvent]":
-        markets = []
-        raw_sampling_simplified_markets = self.client.get_sampling_simplified_markets()
-        for raw_market in raw_sampling_simplified_markets["data"]:
-            token_one_id = raw_market["tokens"][0]["token_id"]
-            market = self.get_market(token_one_id)
-            markets.append(market)
+    def get_sampling_simplified_markets(self) -> list[dict]:
+        """Возвращает список рынков (dict), обогащённых через Gamma, в формате map_api_to_market."""
+        markets: list[dict] = []
+        raw_sampling = self.client.get_sampling_simplified_markets()
+        for raw_market in raw_sampling.get("data", []):
+            try:
+                token_one_id = raw_market["tokens"][0]["token_id"]
+                gamma_market = self.get_market(token_one_id)
+                mapped = self.map_api_to_market(gamma_market, token_one_id)
+                markets.append(mapped)
+            except Exception:
+                continue
         return markets
 
     def get_orderbook(self, token_id: str) -> OrderBookSummary:
