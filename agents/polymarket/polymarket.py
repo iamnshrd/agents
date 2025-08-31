@@ -76,6 +76,12 @@ class Polymarket:
 
         self._init_api_keys()
         self._init_approvals(False)
+        # Simple in-memory cache for prices
+        self._price_cache: dict[str, tuple[float, float]] = {}
+        try:
+            self._price_ttl_seconds = float(os.getenv("PRICE_TTL", "60"))
+        except Exception:
+            self._price_ttl_seconds = 60.0
 
     def _init_api_keys(self) -> None:
         self.client = ClobClient(
@@ -214,13 +220,13 @@ class Polymarket:
                 tradeable_markets.append(market)
         return tradeable_markets
 
-    def get_market(self, token_id: str) -> SimpleMarket:
+    def get_market(self, token_id: str) -> dict:
         params = {"clob_token_ids": token_id}
         res = httpx.get(self.gamma_markets_endpoint, params=params)
         if res.status_code == 200:
             data = res.json()
             market = data[0]
-            return self.map_api_to_market(market, token_id)
+            return market
 
     def map_api_to_market(self, market, token_id: str = "") -> SimpleMarket:
         # Безопасные извлечения с дефолтами, так как API может возвращать неполные поля
@@ -320,6 +326,19 @@ class Polymarket:
 
     def get_orderbook_price(self, token_id: str) -> float:
         return float(self.client.get_price(token_id))
+
+    def get_orderbook_price_cached(self, token_id: str) -> float:
+        now = time.time()
+        cached = self._price_cache.get(token_id)
+        if cached:
+            price, ts = cached
+            if now - ts <= self._price_ttl_seconds:
+                return price
+        price = self.get_orderbook_price(token_id)
+        # clamp
+        price = max(0.01, min(0.99, price))
+        self._price_cache[token_id] = (price, now)
+        return price
 
     def get_address_for_private_key(self):
         account = self.w3.eth.account.from_key(str(self.private_key))

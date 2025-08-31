@@ -120,8 +120,7 @@ class DryRunTrader:
             # Фильтруем события (или используем fallback по рынкам)
             if not events:
                 logger.warning("No tradeable events returned from API; falling back to direct markets fetch")
-                raw_markets = self.gamma.get_all_current_markets(limit=100)
-                markets = [self.polymarket.map_api_to_market(m) for m in raw_markets]
+                markets = self.gamma.get_all_current_markets(limit=100)
                 logger.info(f"3. FOUND {len(markets)} MARKETS (fallback)")
             else:
                 filtered_events = self.agent.filter_events_with_rag(events)

@@ -192,7 +192,7 @@ class Executor:
                 raw_ids = market.get("clob_token_ids") or market.get("clobTokenIds") or "[]"
                 token_ids = ast.literal_eval(str(raw_ids)) if not isinstance(raw_ids, list) else raw_ids
                 if isinstance(token_ids, list) and token_ids:
-                    price = float(self.polymarket.get_orderbook_price(str(token_ids[0])))
+                    price = float(self.polymarket.get_orderbook_price_cached(str(token_ids[0])))
                     price = max(0.01, min(0.99, price))
                     outcome_prices = [price, round(1.0 - price, 4)]
                 if not outcomes:
