@@ -7,8 +7,7 @@ from typing import List, Dict, Any
 import math
 
 from dotenv import load_dotenv
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
+from openai import OpenAI
 
 from agents.polymarket.gamma import GammaMarketClient as Gamma
 from agents.connectors.chroma import PolymarketRAG as Chroma
@@ -35,20 +34,24 @@ class Executor:
         self.token_limit = max_token_model.get(default_model)
         self.prompter = Prompter()
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
-        self.llm = ChatOpenAI(
-            model=default_model, #gpt-3.5-turbo"
-            temperature=0,
-        )
+        self.default_model = default_model
+        self.client = OpenAI(api_key=self.openai_api_key)
         self.gamma = Gamma()
         self.chroma = Chroma()
         self.polymarket = Polymarket()
 
+    def _chat(self, prompt_text: str) -> str:
+        response = self.client.chat.completions.create(
+            model=self.default_model,
+            messages=[{"role": "user", "content": prompt_text}],
+            temperature=0,
+        )
+        return response.choices[0].message.content
+
     def get_llm_response(self, user_input: str) -> str:
-        system_message = SystemMessage(content=str(self.prompter.market_analyst()))
-        human_message = HumanMessage(content=user_input)
-        messages = [system_message, human_message]
-        result = self.llm.invoke(messages)
-        return result.content
+        system_text = str(self.prompter.market_analyst())
+        combined = f"{system_text}\n\n{user_input}"
+        return self._chat(combined)
 
     def get_superforecast(
         self, event_title: str, market_question: str, outcome: str
@@ -56,8 +59,7 @@ class Executor:
         messages = self.prompter.superforecaster(
             description=event_title, question=market_question, outcome=outcome
         )
-        result = self.llm.invoke(messages)
-        return result.content
+        return self._chat(messages)
 
 
     def estimate_tokens(self, text: str) -> int:
@@ -65,13 +67,9 @@ class Executor:
         return len(text) // 4  # Assuming average of 4 characters per token
 
     def process_data_chunk(self, data1: List[Dict[Any, Any]], data2: List[Dict[Any, Any]], user_input: str) -> str:
-        system_message = SystemMessage(
-            content=str(self.prompter.prompts_polymarket(data1=data1, data2=data2))
-        )
-        human_message = HumanMessage(content=user_input)
-        messages = [system_message, human_message]
-        result = self.llm.invoke(messages)
-        return result.content
+        system_text = str(self.prompter.prompts_polymarket(data1=data1, data2=data2))
+        combined = f"{system_text}\n\n{user_input}"
+        return self._chat(combined)
 
 
     def divide_list(self, original_list, i):
@@ -124,8 +122,7 @@ class Executor:
             return combined_result
     def filter_events(self, events: "list[SimpleEvent]") -> str:
         prompt = self.prompter.filter_events(events)
-        result = self.llm.invoke(prompt)
-        return result.content
+        return self._chat(prompt)
 
     def filter_events_with_rag(self, events: "list[SimpleEvent]") -> str:
         prompt = self.prompter.filter_events()
@@ -166,16 +163,14 @@ class Executor:
         print()
         print("... prompting ... ", prompt)
         print()
-        result = self.llm.invoke(prompt)
-        content = result.content
+        content = self._chat(prompt)
 
         print("result: ", content)
         print()
         prompt = self.prompter.one_best_trade(content, outcomes, outcome_prices)
         print("... prompting ... ", prompt)
         print()
-        result = self.llm.invoke(prompt)
-        content = result.content
+        content = self._chat(prompt)
 
         print("result: ", content)
         print()
@@ -193,6 +188,5 @@ class Executor:
         print()
         print("... prompting ... ", prompt)
         print()
-        result = self.llm.invoke(prompt)
-        content = result.content
+        content = self._chat(prompt)
         return content
