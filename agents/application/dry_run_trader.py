@@ -4,6 +4,7 @@ from agents.polymarket.polymarket import Polymarket
 from agents.connectors.telegram import TelegramAlertsSync
 from agents.utils.trading_config import trading_config
 from agents.utils.portfolio import PortfolioManager
+from agents.enhanced_agents.pareto_agent import ParetoAgent
 
 import shutil
 import logging
@@ -31,6 +32,7 @@ class DryRunTrader:
         except Exception:
             initial_balance = 100.0
         self.portfolio = PortfolioManager(initial_balance=initial_balance)
+        self.pareto = ParetoAgent()
         
         # Статистика торговли
         self.daily_stats = {
@@ -143,6 +145,19 @@ class DryRunTrader:
             if not filtered_markets:
                 logger.warning("No suitable markets found for trading")
                 return
+
+            # Применяем Pareto-агента поверх фильтра LLM/RAG
+            try:
+                raw_markets = [m[0].dict()["metadata"] if hasattr(m[0], 'dict') else m for m in filtered_markets]
+            except Exception:
+                raw_markets = [m for m in filtered_markets]
+            top_markets = self.pareto.select_top_items(raw_markets)
+            if not top_markets:
+                logger.warning("Pareto agent returned empty set; skipping trade")
+                return
+            # Найдём соответствующий объект из filtered_markets по id
+            top_ids = {str(tm.get("id")) for tm in top_markets if tm.get("id") is not None}
+            filtered_markets = [m for m in filtered_markets if str((m[0].dict()["metadata"]["id"]) if hasattr(m[0],'dict') else m.get("id")) in top_ids]
             
             # Выбираем лучший рынок
             market = filtered_markets[0]
