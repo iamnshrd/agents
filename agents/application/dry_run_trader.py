@@ -283,14 +283,22 @@ class DryRunTrader:
         # В dry-run режиме просто симулируем результат
         import random
         
-        # Симулируем PnL (в реальности это будет зависеть от движения цены)
+        # Базовые параметры сделки
+        base_price = float(trade_data.get("price", 0.5))
+        side = str(trade_data.get("side", "UNKNOWN")).upper()
+        # Симулируем изменение цены (в реальности зависит от рынка)
         price_change = random.uniform(-0.1, 0.1)  # ±10% изменение цены
+        new_price = max(0.01, min(0.99, base_price + price_change))
+        # Стоимость позиции
         position_value = float(trade_data.get("size", 0.0)) * float(trading_config.get_available_balance())
         pnl = position_value * price_change
         
         trade_result = {
             "event_title": trade_data.get("event_title", "Unknown"),
-            "size": trade_data.get("size", 0),
+            "side": side,
+            "entry_price": base_price,
+            "exit_price": new_price,
+            "size": trade_data.get("size", 0.0),
             "pnl": pnl,
             "price_change": price_change,
             "execution_time": datetime.now().isoformat(),

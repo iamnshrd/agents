@@ -104,9 +104,9 @@ class PolymarketRAG:
         if not events:
             return []
         # create local json file
-        local_events_directory: str = "./local_db_events"
-        if not os.path.isdir(local_events_directory):
-            os.mkdir(local_events_directory)
+        # Пишем во временный путь в контейнере с правами на запись
+        local_events_directory: str = "/tmp/local_db_events"
+        os.makedirs(local_events_directory, exist_ok=True)
         local_file_path = f"{local_events_directory}/events.json"
         dict_events = [x.dict() for x in events]
         with open(local_file_path, "w+") as output_file:
@@ -146,9 +146,8 @@ class PolymarketRAG:
         if not markets:
             return []
         # create local json file
-        local_events_directory: str = "./local_db_markets"
-        if not os.path.isdir(local_events_directory):
-            os.mkdir(local_events_directory)
+        local_events_directory: str = "/tmp/local_db_markets"
+        os.makedirs(local_events_directory, exist_ok=True)
         local_file_path = f"{local_events_directory}/markets.json"
         with open(local_file_path, "w+") as output_file:
             json.dump(markets, output_file)
