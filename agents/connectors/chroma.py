@@ -23,7 +23,8 @@ from agents.utils.objects import SimpleEvent, SimpleMarket
 class PolymarketRAG:
     def __init__(self, local_db_directory=None, embedding_function=None) -> None:
         self.gamma_client = GammaMarketClient()
-        self.local_db_directory = local_db_directory
+        # Default to tmp directory to prevent permission issues in containers
+        self.local_db_directory = local_db_directory or "/tmp/local_db"
         self.embedding_function = embedding_function
 
     def _get_default_embeddings(self) -> Any:
@@ -73,9 +74,26 @@ class PolymarketRAG:
         loaded_docs = loader.load()
 
         embedding_function = self.embedding_function or self._get_default_embeddings()
-        Chroma.from_documents(
-            loaded_docs, embedding_function, persist_directory=vector_db_directory
-        )
+        # Guard: write only if directory is writable
+        try:
+            os.makedirs(vector_db_directory or "/tmp/local_db", exist_ok=True)
+            Chroma.from_documents(
+                loaded_docs, embedding_function, persist_directory=vector_db_directory or "/tmp/local_db"
+            )
+        except Exception:
+            # Fallback to in-memory client
+            client_settings = (
+                ChromaSettings(is_persistent=False, anonymized_telemetry=False)
+                if ChromaSettings is not None
+                else None
+            )
+            client = ChromaClient(client_settings) if ChromaClient is not None else None
+            Chroma.from_documents(
+                loaded_docs,
+                embedding_function,
+                client=client,
+                collection_name="markets_inmemory_loader",
+            )
 
     def create_local_markets_rag(self, local_directory="./local_db") -> None:
         all_markets = self.gamma_client.get_all_current_markets()

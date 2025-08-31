@@ -29,8 +29,10 @@ class NewsRAG:
 
     def __init__(self, persist_directory: Optional[str] = None) -> None:
         self.persist_directory = (
-            persist_directory or os.getenv("NEWS_RAG_DIR", "./local_news_db")
+            persist_directory or os.getenv("NEWS_RAG_DIR", "/tmp/local_news_db")
         )
+        # By default avoid disk writes (ephemeral, in-memory)
+        self._persist_enabled = os.getenv("RAG_PERSIST", "false").lower() == "true"
         self.embedding_function = self._get_default_embeddings()
         self.news_client = News()
 
@@ -105,7 +107,26 @@ class NewsRAG:
             os.makedirs(path, exist_ok=True)
 
     def _get_chroma(self) -> Chroma:
-        return Chroma(persist_directory=self.persist_directory, embedding_function=self.embedding_function)
+        """Returns a Chroma vectorstore. If RAG_PERSIST is not enabled, use in-memory client (no writes)."""
+        try:
+            if not self._persist_enabled:
+                # In-memory client with telemetry disabled
+                from chromadb.config import Settings as _Settings  # type: ignore
+                from chromadb import Client as _Client  # type: ignore
+                client = _Client(_Settings(is_persistent=False, anonymized_telemetry=False))
+                return Chroma(
+                    client=client,
+                    collection_name="news_inmemory",
+                    embedding_function=self.embedding_function,
+                )
+        except Exception:
+            # Fall back to default persistent behavior if in-memory client not available
+            pass
+        # Persistent vectorstore (may write to disk)
+        return Chroma(
+            persist_directory=self.persist_directory,
+            embedding_function=self.embedding_function,
+        )
 
     def ingest_news(
         self,
@@ -223,7 +244,12 @@ class NewsRAG:
         texts = [t for t, _ in docs]
         metadatas = [m for _, m in docs]
         chroma.add_texts(texts=texts, metadatas=metadatas)
-        chroma.persist()
+        # Persist only if explicitly enabled
+        try:
+            if self._persist_enabled and hasattr(chroma, "persist"):
+                chroma.persist()
+        except Exception:
+            pass
         return len(texts)
 
     def query_news(self, query: str, top_k: int = 5) -> List[Tuple[Dict[str, Any], float]]:
