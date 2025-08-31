@@ -152,12 +152,39 @@ class Executor:
         return self.chroma.markets(markets, prompt)
 
     def source_best_trade(self, market_object) -> str:
-        market_document = market_object[0].dict()
-        market = market_document["metadata"]
-        outcome_prices = ast.literal_eval(market["outcome_prices"])
-        outcomes = ast.literal_eval(market["outcomes"])
-        question = market["question"]
-        description = market_document["page_content"]
+        # Универсальная распаковка разных форматов market_object
+        market = None
+        description = ""
+        try:
+            # Формат: (Document, score)
+            if isinstance(market_object, (list, tuple)) and market_object and hasattr(market_object[0], "dict"):
+                market_document = market_object[0].dict()
+                market = market_document.get("metadata", {})
+                description = market_document.get("page_content", "")
+            # Формат: dict с полями market
+            elif isinstance(market_object, dict):
+                market = market_object
+                description = market.get("description", "")
+            # Формат: список/кортеж, где нулевой элемент dict
+            elif isinstance(market_object, (list, tuple)) and market_object and isinstance(market_object[0], dict):
+                market = market_object[0]
+                description = market.get("description", "")
+        except Exception:
+            pass
+
+        if market is None:
+            raise ValueError("Unsupported market_object format")
+
+        # Распаковка полей с безопасным парсингом
+        try:
+            outcome_prices = ast.literal_eval(market.get("outcome_prices", "[]"))
+        except Exception:
+            outcome_prices = []
+        try:
+            outcomes = ast.literal_eval(market.get("outcomes", "[]"))
+        except Exception:
+            outcomes = []
+        question = market.get("question", "")
 
         prompt = self.prompter.superforecaster(question, description, outcomes)
         print()
