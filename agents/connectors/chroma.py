@@ -11,8 +11,10 @@ from langchain_community.document_loaders import JSONLoader
 from langchain_community.vectorstores.chroma import Chroma
 try:
     from chromadb.config import Settings as ChromaSettings  # type: ignore
+    from chromadb import Client as ChromaClient  # type: ignore
 except Exception:
     ChromaSettings = None  # type: ignore
+    ChromaClient = None  # type: ignore
 
 from agents.polymarket.gamma import GammaMarketClient
 from agents.utils.objects import SimpleEvent, SimpleMarket
@@ -130,13 +132,18 @@ class PolymarketRAG:
         loaded_docs = loader.load()
         embedding_function = self.embedding_function or self._get_default_embeddings()
         # Используем in-memory индекс, чтобы избежать проблем с правами БД
+        # In-memory client (no file writes)
         client_settings = (
             ChromaSettings(is_persistent=False, anonymized_telemetry=False)
             if ChromaSettings is not None
             else None
         )
+        client = ChromaClient(client_settings) if ChromaClient is not None else None
         local_db = Chroma.from_documents(
-            loaded_docs, embedding_function, client_settings=client_settings
+            loaded_docs,
+            embedding_function,
+            client=client,
+            collection_name="events_inmemory",
         )
 
         # query
@@ -179,8 +186,12 @@ class PolymarketRAG:
             if ChromaSettings is not None
             else None
         )
+        client = ChromaClient(client_settings) if ChromaClient is not None else None
         local_db = Chroma.from_documents(
-            loaded_docs, embedding_function, client_settings=client_settings
+            loaded_docs,
+            embedding_function,
+            client=client,
+            collection_name="markets_inmemory",
         )
 
         # query
