@@ -117,12 +117,21 @@ class DryRunTrader:
             logger.info(f"1. FOUND {len(events)} EVENTS")
             
             # Фильтруем события
+            if not events:
+                logger.warning("No tradeable events returned from API")
+                return
             filtered_events = self.agent.filter_events_with_rag(events)
             logger.info(f"2. FILTERED {len(filtered_events)} EVENTS")
+            if not filtered_events:
+                logger.warning("No events matched filters; skipping trade")
+                return
             
             # Получаем рынки
             markets = self.agent.map_filtered_events_to_markets(filtered_events)
             logger.info(f"3. FOUND {len(markets)} MARKETS")
+            if not markets:
+                logger.warning("No markets mapped from filtered events; skipping trade")
+                return
             
             # Фильтруем рынки
             filtered_markets = self.agent.filter_markets(markets)
