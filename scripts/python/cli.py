@@ -360,6 +360,20 @@ def cleanup_logs(days_to_keep: int = 30) -> None:
 
 
 @app.command()
+def paper_session(num_trades: int = 5, pause_secs: float = 2.0, commission_bps: float = 10.0, slippage_bps: float = 20.0) -> None:
+    """
+    Run paper-trading session with commissions/slippage and partial fills
+    """
+    print(f"Starting paper session: trades={num_trades}, pause={pause_secs}s, fee={commission_bps}bps, slip={slippage_bps}bps")
+    try:
+        from agents.application.paper_trader import PaperTrader
+        trader = PaperTrader(commission_bps=commission_bps, slippage_bps=slippage_bps)
+        trader.run_session(num_trades=num_trades, pause_secs=pause_secs)
+    except Exception as e:
+        print(f"❌ Paper session error: {e}")
+
+
+@app.command()
 def show_positions() -> None:
     """
     Show current open positions
@@ -381,7 +395,7 @@ def show_positions() -> None:
         
         # Фильтруем только исполненные сделки (включая enhanced)
         executed_trades = [
-            t for t in trades if t.get("type") in {"execution", "enhanced_execution"}
+            t for t in trades if t.get("type") in {"execution", "enhanced_execution", "paper_execution"}
         ]
         
         if not executed_trades:
@@ -469,7 +483,7 @@ def show_portfolio() -> None:
         
         # Анализируем производительность
         executed_trades = [
-            t for t in trades if t.get("type") in {"execution", "enhanced_execution"}
+            t for t in trades if t.get("type") in {"execution", "enhanced_execution", "paper_execution"}
         ]
         
         if not executed_trades:
@@ -559,7 +573,7 @@ def show_trade_history(limit: int = 10) -> None:
         
         # Фильтруем и сортируем по времени
         executed_trades = [
-            t for t in trades if t.get("type") in {"execution", "enhanced_execution"}
+            t for t in trades if t.get("type") in {"execution", "enhanced_execution", "paper_execution"}
         ]
         executed_trades.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
         

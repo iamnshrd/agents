@@ -21,8 +21,9 @@ class TradingConfig:
         # Режим торговли
         self.trading_mode = os.getenv("TRADING_MODE", "dry_run").lower()
         
-        # Баланс для dry-run режима (в центах)
+        # Балансы (в центах)
         self.dry_run_balance = int(os.getenv("DRY_RUN_BALANCE", "10000"))
+        self.paper_balance = int(os.getenv("PAPER_BALANCE", os.getenv("DRY_RUN_BALANCE", "10000")))
         
         # Параметры позиций
         self.max_position_size = float(os.getenv("MAX_POSITION_SIZE", "0.1"))
@@ -75,7 +76,9 @@ class TradingConfig:
     def get_available_balance(self) -> Decimal:
         """Возвращает доступный баланс для торговли"""
         if self.is_dry_run():
-            return Decimal(self.dry_run_balance) / Decimal(100)  # Конвертируем из центов
+            return Decimal(self.dry_run_balance) / Decimal(100)
+        if self.is_paper_trading():
+            return Decimal(self.paper_balance) / Decimal(100)
         else:
             # В реальном режиме получаем баланс из кошелька
             # TODO: Реализовать получение реального баланса

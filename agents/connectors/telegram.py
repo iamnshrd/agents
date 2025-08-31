@@ -142,6 +142,13 @@ class TelegramAlerts:
         portfolio_balance = trade_data.get("portfolio_balance_before")
         positions_count = trade_data.get("positions_count_before")
 
+        # Режим в заголовке
+        try:
+            from agents.utils.trading_config import trading_config as _tc
+            mode_label = (_tc.trading_mode or "dry_run").upper()
+        except Exception:
+            mode_label = "DRY RUN"
+
         message = f"""
 {side_emoji} <b>{operation}</b> {side_emoji}
 
@@ -156,7 +163,7 @@ class TelegramAlerts:
 {f"📚 <b>Открытых позиций:</b> {int(positions_count)}" if positions_count is not None else ""}
 
 ⏰ <b>Время:</b> {datetime.now().strftime('%H:%M:%S')}
-🔧 <b>Режим:</b> DRY RUN
+🔧 <b>Режим:</b> {mode_label}
         """
         
         return message.strip()
@@ -183,6 +190,12 @@ class TelegramAlerts:
         # Доп. поле баланса (опционально)
         portfolio_balance = position_data.get("portfolio_balance")
 
+        try:
+            from agents.utils.trading_config import trading_config as _tc
+            mode_label = (_tc.trading_mode or "dry_run").upper()
+        except Exception:
+            mode_label = "DRY RUN"
+
         message = f"""
 {pnl_emoji} <b>ПОЗИЦИЯ</b>
 
@@ -196,7 +209,7 @@ class TelegramAlerts:
 {f"💼 <b>Баланс портфеля:</b> ${float(portfolio_balance):.2f}" if portfolio_balance is not None else ""}
 
 ⏰ <b>Время:</b> {datetime.now().strftime('%H:%M:%S')}
-🔧 <b>Режим:</b> DRY RUN
+🔧 <b>Режим:</b> {mode_label}
         """
 
         return message.strip()
@@ -375,7 +388,15 @@ async def telegram_bot_poll(loop_interval: float = 2.0):
     allowed_chat = os.getenv("TELEGRAM_CHAT_ID")
     base = f"https://api.telegram.org/bot{token}"
     offset = None
-    pm = PortfolioManager()
+    # Выбираем хранилище портфеля по режиму торговли
+    try:
+        from agents.utils.trading_config import trading_config as _tc
+        if _tc.is_paper_trading():
+            pm = PortfolioManager(storage_path="./logs/paper_portfolio.json")
+        else:
+            pm = PortfolioManager()
+    except Exception:
+        pm = PortfolioManager()
 
     async with aiohttp.ClientSession() as session:
         while True:
